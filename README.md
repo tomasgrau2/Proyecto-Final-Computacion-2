@@ -1,4 +1,4 @@
-# 🧑‍💻 Sala de Chat Asíncrona (IPv4 + IPv6) Proyecto Final Computación2
+# 🧑‍💻 Sala de Chat Asíncrona (IPv4 + IPv6) - Proyecto Final Computación2
 
 Este proyecto es una sala de chat implementada en Python como parte del trabajo final para la asignatura **Computación 2**. El objetivo principal es permitir que múltiples clientes, conectados utilizando **IPv4 o IPv6**, puedan comunicarse de forma simultánea mediante un servidor central programado usando `asyncio`.
 
@@ -25,8 +25,7 @@ Este proyecto es una sala de chat implementada en Python como parte del trabajo 
    ```bash
    git clone https://github.com/tomasgrau2/Proyecto-Final-Computacion-2.git
    cd Proyecto-Final-Computacion-2
-   $ python3 servidor.py
-
+   $ python3 servidor.py 
 
 ## 🧪 Ejemplo de uso
 
