@@ -46,12 +46,32 @@ async def handle_auth(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
         writer.close()
         await writer.wait_closed()
 
+async def shutdown(server: asyncio.Server):
+    print(f"\n🛑 Iniciando apagado del servidor de autenticación")
+    
+    # Cerrar el servidor
+    server.close()
+    await server.wait_closed()
+    
+    # Limpiar usuarios activos
+    usuarios_activos.clear()
+    
+    print("✅ Servidor de autenticación apagado correctamente")
+
 async def main():
     server = await asyncio.start_server(handle_auth, '127.0.0.1', 9000)
     print("Servidor de autenticación escuchando en 127.0.0.1:9000")
     
-    async with server:
-        await server.serve_forever()
+    # Configurar el manejador de señales
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(server)))
+    
+    try:
+        async with server:
+            await server.serve_forever()
+    except asyncio.CancelledError:
+        pass  # Ya no necesitamos llamar a shutdown aquí
 
 if __name__ == "__main__":
     asyncio.run(main()) 
