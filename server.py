@@ -4,8 +4,6 @@ import signal
 
 # Lista global de clientes conectados
 clientes = set()
-# Variable para controlar el estado del servidor
-servidor_activo = True
 
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     addr = writer.get_extra_info("peername")
@@ -13,7 +11,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
     clientes.add(writer)
 
     try:
-        while servidor_activo:
+        while True:
             data = await reader.readline()
             if not data:
                 break  # El cliente cerró la conexión
@@ -45,11 +43,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         await writer.wait_closed()
 
 async def shutdown(servidor_ipv6: asyncio.Server, servidor_ipv4: asyncio.Server):
-    global servidor_activo
-    if not servidor_activo:
-        return  # Evitar apagado múltiple
     print(f"\n🛑 Iniciando apagado del servidor")
-    servidor_activo = False
     
     # Cerrar todas las conexiones de clientes
     for cliente in clientes.copy():
