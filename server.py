@@ -5,6 +5,25 @@ import signal
 # Lista global de clientes conectados
 clientes = set()
 
+async def filtrar_mensaje(mensaje: str) -> str:
+    """
+    Envía el mensaje al servidor de filtrado y devuelve el mensaje filtrado.
+    """
+    try:
+        reader, writer = await asyncio.open_connection('127.0.0.1', 9010)
+        writer.write(f"{mensaje}\n".encode())
+        await writer.drain()
+        mensaje_filtrado = await reader.readline()
+        writer.close()
+        await writer.wait_closed()
+        return mensaje_filtrado.decode().strip()
+    except ConnectionRefusedError:
+        print("❌ Error: No se pudo conectar con el servidor de filtrado. Los mensajes no serán filtrados.")
+        return mensaje
+    except Exception as e:
+        print(f"Error en el filtrado de mensaje: {e}")
+        return mensaje
+
 async def autenticar_usuario(username: str) -> bool:
     try:
         reader, writer = await asyncio.open_connection('127.0.0.1', 9000)
@@ -57,7 +76,6 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
             await writer.wait_closed()
             return
     except ConnectionRefusedError:
-        print("❌ Error: No se pudo conectar con el servidor de autenticación. Asegúrese de que esté en ejecución.")
         writer.write(b"El servidor de autenticacion no esta disponible en este momento. Por favor, intente mas tarde.\n")
         await writer.drain()
         writer.close()
@@ -81,12 +99,15 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     print(f"Cliente {username} se desconectó usando el comando /exit")
                     break
                 
-                print(f"📨 Mensaje de {username}: {mensaje}")
+                # Filtrar el mensaje
+                mensaje_filtrado = await filtrar_mensaje(mensaje)
+                
+                print(f"📨 Mensaje de {username}: {mensaje_filtrado}")
 
-                # Reenviar mensaje a todos los demás clientes
+                # Reenviar mensaje filtrado a todos los demás clientes
                 for cliente in clientes:
                     if cliente != writer:
-                        cliente.write(f"[{username}] {mensaje}\n".encode())
+                        cliente.write(f"[{username}] {mensaje_filtrado}\n".encode())
                         await cliente.drain()
             except UnicodeDecodeError:
                 print(f"⚠️ Datos inválidos recibidos de {username} - Cliente desconectado abruptamente")
