@@ -5,11 +5,68 @@ import signal
 # Lista global de clientes conectados
 clientes = set()
 
+async def autenticar_usuario(username: str) -> bool:
+    try:
+        reader, writer = await asyncio.open_connection('127.0.0.1', 9000)
+        writer.write(f"AUTH:{username}\n".encode())
+        await writer.drain()
+        respuesta = await reader.readline()
+        writer.close()
+        await writer.wait_closed()
+        return respuesta.decode().strip() == "OK"
+    except ConnectionRefusedError:
+        raise  # Re-lanzamos la excepción para manejarla en handle_client
+    except Exception as e:
+        print(f"Error en autenticación: {e}")
+        return False
+
+async def logout_usuario(username: str):
+    try:
+        reader, writer = await asyncio.open_connection('127.0.0.1', 9000)
+        writer.write(f"LOGOUT:{username}\n".encode())
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+    except ConnectionRefusedError:
+        print("❌ Error: No se pudo conectar con el servidor de autenticación para cerrar sesión.")
+    except Exception as e:
+        print(f"Error en logout: {e}")
+
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     addr = writer.get_extra_info("peername")
     print(f"Cliente conectado: {addr}")
+    
+    # Solicitar nombre de usuario
+    writer.write(b"Ingrese su nombre de usuario: ")
+    await writer.drain()
+    
+    data = await reader.readline()
+    if not data:
+        writer.close()
+        await writer.wait_closed()
+        return
+        
+    username = data.decode().strip()
+    
+    # Autenticar usuario
+    try:
+        if not await autenticar_usuario(username):
+            writer.write(b"Nombre de usuario en uso. Conexion cerrada.\n")
+            await writer.drain()
+            writer.close()
+            await writer.wait_closed()
+            return
+    except ConnectionRefusedError:
+        print("❌ Error: No se pudo conectar con el servidor de autenticación. Asegúrese de que esté en ejecución.")
+        writer.write(b"El servidor de autenticacion no esta disponible en este momento. Por favor, intente mas tarde.\n")
+        await writer.drain()
+        writer.close()
+        await writer.wait_closed()
+        return
+    
+    print(f"Usuario autenticado: {username}")
     clientes.add(writer)
-
+    
     try:
         while True:
             data = await reader.readline()
@@ -21,24 +78,25 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                 
                 # Verificar si el cliente quiere desconectarse
                 if mensaje.lower() == "/exit":
-                    print(f"Cliente {addr} se desconectó usando el comando /exit")
+                    print(f"Cliente {username} se desconectó usando el comando /exit")
                     break
                 
-                print(f"📨 Mensaje de {addr}: {mensaje}")
+                print(f"📨 Mensaje de {username}: {mensaje}")
 
                 # Reenviar mensaje a todos los demás clientes
                 for cliente in clientes:
                     if cliente != writer:
-                        cliente.write(f"[{addr}] {mensaje}\n".encode())
+                        cliente.write(f"[{username}] {mensaje}\n".encode())
                         await cliente.drain()
             except UnicodeDecodeError:
-                print(f"⚠️ Datos inválidos recibidos de {addr} - Cliente desconectado abruptamente")
+                print(f"⚠️ Datos inválidos recibidos de {username} - Cliente desconectado abruptamente")
                 break
     except asyncio.IncompleteReadError:
         pass
     finally:
-        print(f"Cliente desconectado: {addr}")
+        print(f"Cliente desconectado: {username}")
         clientes.remove(writer)
+        await logout_usuario(username)
         writer.close()
         await writer.wait_closed()
 
