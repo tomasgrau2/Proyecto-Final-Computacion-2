@@ -1,4 +1,4 @@
-# log_listener.py
+import threading
 import logging
 import logging.handlers
 import queue 
@@ -69,14 +69,12 @@ def process_log_queue(mp_queue: MpQueue, local_queue: queue.Queue):
 
 def main():
     global stop_event
-
     # Configurar el logger raíz para capturar mensajes del listener mismo (opcional)
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.INFO)
     # Asegurarse de no duplicar handlers si se corre varias veces en un entorno interactivo
     if not any(isinstance(h, logging.StreamHandler) for h in root_logger.handlers):
          root_logger.addHandler(console_handler)
-
 
     print(f"Iniciando Log Manager en {LOG_ADDRESS}")
     manager = QueueManager(address=LOG_ADDRESS, authkey=LOG_AUTHKEY)
@@ -87,7 +85,6 @@ def main():
     print("Log Listener iniciado.")
 
     # Iniciar el servidor del manager en un hilo para que no bloquee
-    import threading
     manager_thread = threading.Thread(target=server.serve_forever, daemon=True)
     manager_thread.start()
     print("Log Manager escuchando...")
@@ -95,7 +92,6 @@ def main():
     # Iniciar el proceso que mueve logs de la MpQueue a la cola local
     log_processor_thread = threading.Thread(target=process_log_queue, args=(shared_log_queue, local_log_queue), daemon=True)
     log_processor_thread.start()
-
 
     # Configurar manejadores de señales para detenerse limpiamente
     signal.signal(signal.SIGINT, signal_handler)
