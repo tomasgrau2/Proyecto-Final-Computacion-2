@@ -2,7 +2,7 @@ import asyncio
 import signal
 
 # Conjunto para almacenar usuarios activos
-usuarios_activos = set()
+usuarios_activos:dict = {}
 
 async def handle_auth(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     addr = writer.get_extra_info("peername")
@@ -15,14 +15,23 @@ async def handle_auth(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
                 break
                 
             comando = data.decode().strip()
+            parts = comando.split(":",2)
             if comando.startswith("AUTH:"):
-                # Formato: AUTH:username
-                username = comando[5:]
-                if username in usuarios_activos:
-                    writer.write(b"NO\n")
-                else:
-                    usuarios_activos.add(username)
+                # Formato: AUTH:pid:username
+                pid = parts[1]
+                username = parts[2]
+                print(pid)
+                print(username)
+                # Si la address no esta en el dict, crear address y agregar usuario
+                if pid not in usuarios_activos:
+                    usuarios_activos[pid]=username
                     writer.write(b"OK\n")
+                else:
+                    if username in usuarios_activos[pid]:
+                        writer.write(b"NO\n")
+                    else:
+                        usuarios_activos[pid].append(username)
+                        writer.write(b"OK\n")
             elif comando.startswith("LOGOUT:"):
                 # Formato: LOGOUT:username
                 username = comando[7:]
