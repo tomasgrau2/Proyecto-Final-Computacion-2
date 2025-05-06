@@ -3,6 +3,7 @@ import asyncio
 import argparse
 import signal
 import logging 
+import os
 import logging.handlers 
 from multiprocessing.managers import BaseManager 
 
@@ -63,9 +64,12 @@ async def filtrar_mensaje(mensaje: str) -> str:
         return mensaje
 
 async def autenticar_usuario(username: str) -> bool:
+    ### TO-DO: pasar la direccion del server para poder tener los mismos nombres de usuarios en servers distintos
     try:
+        logger.debug(f'{os.getpid()}')
         reader, writer = await asyncio.open_connection('127.0.0.1', 9000)
-        writer.write(f"AUTH:{username}\n".encode())
+        # Uso el pid como identificador de cada sala de chat
+        writer.write(f"AUTH:{os.getpid()}:{username}\n".encode())
         await writer.drain()
         respuesta = await reader.readline()
         writer.close()
@@ -80,7 +84,7 @@ async def autenticar_usuario(username: str) -> bool:
 async def logout_usuario(username: str):
     try:
         reader, writer = await asyncio.open_connection('127.0.0.1', 9000)
-        writer.write(f"LOGOUT:{username}\n".encode())
+        writer.write(f"LOGOUT:{os.getpid()}:{username}\n".encode())
         await writer.drain()
         writer.close()
         await writer.wait_closed()
@@ -105,7 +109,13 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
         logger.warning(f"Cliente {addr} desconectado antes de enviar usuario.") 
         return
 
-    username = data.decode().strip()
+    try:
+        username = data.decode().strip()
+    except UnicodeDecodeError:
+        writer.close()
+        await writer.wait_closed()
+        logger.warning(f"Datos inválidos (no UTF-8) recibidos - Desconectando.") 
+        return
     if not username:
         writer.write(b"Nombre de usuario vacio no permitido. Conexion cerrada.\n")
         await writer.drain()
@@ -171,9 +181,10 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
             except UnicodeDecodeError:
                 logger.warning(f"Datos inválidos (no UTF-8) recibidos de '{username}' {addr} - Desconectando.") 
+                break
             except Exception:
-                 logger.exception(f"Error inesperado manejando mensaje de '{username}' {addr}.")  
-                 break # Desconectar en caso de error grave
+                logger.exception(f"Error inesperado manejando mensaje de '{username}' {addr}.")  
+                break # Desconectar en caso de error grave
 
     except asyncio.IncompleteReadError:
         logger.warning(f"Lectura incompleta desde '{username}' {addr}. Probable desconexión abrupta.") 
@@ -232,12 +243,12 @@ async def start_server(args):
     servidor_ipv4 = await asyncio.start_server(handle_client, '0.0.0.0', args.port, family=socket.AF_INET) # Escuchar explícitamente en IPv4 también
     addr_ipv6 = servidor_ipv6.sockets[0].getsockname()
     addr_ipv4 = servidor_ipv4.sockets[0].getsockname()
+    logger.debug(f"{addr_ipv4}")
     logger.info(f"Servidor escuchando en IPv6 [{addr_ipv6[0]}]:{addr_ipv6[1]} y IPv4 {addr_ipv4[0]}:{addr_ipv4[1]}") 
 
     # Configurar el manejador de señales
     loop = asyncio.get_running_loop()
     for sig in (signal.SIGINT, signal.SIGTERM):
-        logger.info("Señal de apagado recibida. Iniciando cierre...")
         loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(servidor_ipv6, servidor_ipv4)))
 
     try:
@@ -255,7 +266,7 @@ async def main():
                         help='Puerto para el servidor de chat (default: 8888)')
     parser.add_argument('-H', '--host', default='::',
                         help='Dirección de host IPv6 para escuchar (default: "::", escucha en todas las interfaces IPv6)')
-    parser.add_argument('--debug', action='store_true',
+    parser.add_argument('-d','--debug', action='store_true',
                         help='Activar modo debug con mensajes detallados')
     args = parser.parse_args()
 
