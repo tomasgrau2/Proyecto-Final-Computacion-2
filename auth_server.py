@@ -1,5 +1,9 @@
 import asyncio
 import signal
+import os
+from dotenv import load_dotenv
+
+
 
 # Conjunto para almacenar usuarios activos
 usuarios_activos:dict = {}
@@ -68,7 +72,8 @@ async def shutdown(server: asyncio.Server):
     print("✅ Servidor de autenticación apagado correctamente")
 
 async def main():
-    server = await asyncio.start_server(handle_auth, '127.0.0.1', 9000)
+    load_dotenv()
+    server = await asyncio.start_server(handle_auth, os.getenv('AUTH_ADDRESS_HOST'), int(os.getenv('AUTH_ADDRESS_PORT')))
     print("Servidor de autenticación escuchando en 127.0.0.1:9000")
     
     # Configurar el manejador de señales

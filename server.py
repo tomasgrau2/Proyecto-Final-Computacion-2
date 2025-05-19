@@ -6,10 +6,16 @@ import logging
 import os
 import logging.handlers 
 from multiprocessing.managers import BaseManager 
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # ---- Configuración de Logging Remoto ----
-LOG_ADDRESS = ('localhost', 50000)
-LOG_AUTHKEY = b'miClaveSecretaParaLogs'
+LOG_ADDRESS = (os.getenv('LOG_ADDRESS_HOST'),int(os.getenv('LOG_ADDRESS_PORT')))
+print(LOG_ADDRESS)
+LOG_AUTHKEY = os.getenv('LOG_AUTHKEY')
+LOG_AUTHKEY = LOG_AUTHKEY.encode('utf-8')
+print(LOG_AUTHKEY)
 
 class QueueManager(BaseManager):
     pass
@@ -67,7 +73,7 @@ async def autenticar_usuario(username: str) -> bool:
     ### TO-DO: pasar la direccion del server para poder tener los mismos nombres de usuarios en servers distintos
     try:
         logger.debug(f'{os.getpid()}')
-        reader, writer = await asyncio.open_connection('127.0.0.1', 9000)
+        reader, writer = await asyncio.open_connection(os.getenv('AUTH_ADDRESS_HOST'), int(os.getenv('AUTH_ADDRESS_PORT')))
         # Uso el pid como identificador de cada sala de chat
         writer.write(f"AUTH:{os.getpid()}:{username}\n".encode())
         await writer.drain()
@@ -83,7 +89,7 @@ async def autenticar_usuario(username: str) -> bool:
 
 async def logout_usuario(username: str):
     try:
-        reader, writer = await asyncio.open_connection('127.0.0.1', 9000)
+        reader, writer = await asyncio.open_connection(os.getenv('AUTH_ADDRESS_HOST'), int(os.getenv('AUTH_ADDRESS_PORT')))
         writer.write(f"LOGOUT:{os.getpid()}:{username}\n".encode())
         await writer.drain()
         writer.close()
