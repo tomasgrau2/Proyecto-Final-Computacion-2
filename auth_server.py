@@ -24,8 +24,6 @@ async def handle_auth(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
             username = parts[2]
             if comando.startswith("AUTH:"):
                 # Formato: AUTH:pid:username
-                print(pid)
-                print(username)
                 # Si la address no esta en el dict, crear address y agregar usuario
                 if pid not in usuarios_activos:
                     usuarios_activos[pid]=[username]
@@ -35,8 +33,7 @@ async def handle_auth(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
                         writer.write(b"NO\n")
                     else:
                         usuarios_activos[pid].append(username)
-                        writer.write(b"OK\n")
-                print(usuarios_activos)        
+                        writer.write(b"OK\n")       
             elif comando.startswith("LOGOUT:"):
                 # Formato: LOGOUT:username
                 if username in usuarios_activos[pid]:

@@ -92,7 +92,6 @@ def main():
             pass
         except Exception as e:
             print(f"Error procesando cola de logs: {e}", file=sys.stderr)
-            time.sleep(1)  # Evitar spam si hay un error persistente
 
     # --- Proceso de apagado ---
     print("Deteniendo Log Manager...")

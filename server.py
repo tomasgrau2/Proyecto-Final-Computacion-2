@@ -2,7 +2,9 @@ import socket
 import asyncio
 import argparse
 import signal
+import datetime
 import logging 
+import pyfiglet
 import os
 import logging.handlers 
 from multiprocessing.managers import BaseManager 
@@ -12,10 +14,8 @@ load_dotenv()
 
 # ---- Configuración de Logging Remoto ----
 LOG_ADDRESS = (os.getenv('LOG_ADDRESS_HOST'),int(os.getenv('LOG_ADDRESS_PORT')))
-print(LOG_ADDRESS)
 LOG_AUTHKEY = os.getenv('LOG_AUTHKEY')
 LOG_AUTHKEY = LOG_AUTHKEY.encode('utf-8')
-print(LOG_AUTHKEY)
 
 class QueueManager(BaseManager):
     pass
@@ -50,27 +50,7 @@ else:
 # Lista global de clientes conectados
 clientes = set()
 
-async def filtrar_mensaje(mensaje: str) -> str:
-    """
-    Envía el mensaje al servidor de filtrado y devuelve el mensaje filtrado.
-    """
-    try:
-        reader, writer = await asyncio.open_connection('127.0.0.1', 9010)
-        writer.write(f"{mensaje}\n".encode())
-        await writer.drain()
-        mensaje_filtrado = await reader.readline()
-        writer.close()
-        await writer.wait_closed()
-        return mensaje_filtrado.decode().strip()
-    except ConnectionRefusedError:
-        logger.error("No se pudo conectar con el servidor de filtrado. Los mensajes no serán filtrados.") 
-        return mensaje
-    except Exception as e:
-        logger.exception(f"Error en el filtrado de mensaje")
-        return mensaje
-
 async def autenticar_usuario(username: str) -> bool:
-    ### TO-DO: pasar la direccion del server para poder tener los mismos nombres de usuarios en servers distintos
     try:
         logger.debug(f'{os.getpid()}')
         reader, writer = await asyncio.open_connection(os.getenv('AUTH_ADDRESS_HOST'), int(os.getenv('AUTH_ADDRESS_PORT')))
@@ -99,6 +79,12 @@ async def logout_usuario(username: str):
         logger.error("No se pudo conectar con el servidor de autenticación para cerrar sesión.") 
     except Exception as e:
         logger.exception(f"Error en logout para usuario '{username}'") 
+    finally:
+        # Reenviar mensaje a todos los demás clientes
+                for cliente in clientes:
+                    if cliente != writer:
+                        cliente.write(f"🚫 {username} ha salido del chat\n".encode())
+                        await cliente.drain()
 
 async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     addr = writer.get_extra_info("peername")
@@ -156,6 +142,19 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
     logger.info(f"Usuario autenticado: '{username}' desde {addr}") 
     clientes.add(writer)
+    # Mensaje de Bievenida
+    banner = pyfiglet.figlet_format("Sala de Chat")
+    writer.write(banner.encode())
+    await writer.drain()
+    welcome_message = f"✅ Bienvenido a la sala de chat {username}!\n"
+    writer.write(welcome_message.encode('utf-8'))
+    await writer.drain()
+    # Mensaje de aviso a los demás clientes
+    new_client_msg = f"📢 {username} se ha unido al chat.\n"
+    for cliente in clientes:
+        if cliente != writer:
+            cliente.write(new_client_msg.encode())
+            await cliente.drain()
 
     try:
         while True:
@@ -174,15 +173,15 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                     logger.info(f"Cliente '{username}' {addr} se desconectó usando el comando /exit") 
                     break
 
-                # Filtrar el mensaje
-                mensaje_filtrado = await filtrar_mensaje(mensaje)
-
-                logger.info(f"Mensaje de '{username}' [{addr}]: {mensaje_filtrado}") 
+                logger.info(f"Mensaje de '{username}' [{addr}]: {mensaje}") 
 
                 # Reenviar mensaje filtrado a todos los demás clientes
+                now = datetime.datetime.now()
+                timestamp = now.strftime("%H:%M")
+
                 for cliente in clientes:
                     if cliente != writer:
-                        cliente.write(f"[{username}] {mensaje_filtrado}\n".encode())
+                        cliente.write(f"🟢 [{username} | {timestamp}]: {mensaje}\n".encode('utf-8'))
                         await cliente.drain()
 
             except UnicodeDecodeError:
@@ -283,4 +282,5 @@ if __name__ == "__main__":
         asyncio.run(main())
     except Exception as e:
         # Capturar cualquier error fatal durante el inicio/ejecución de asyncio.run
-        logging.critical(f"Error fatal no manejado: {e}", exc_info=True)
+        pass
+        # logging.critical(f"Error fatal no manejado: {e}")
