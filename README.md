@@ -53,7 +53,14 @@ Este proyecto es una sala de chat implementada en Python como parte del trabajo 
    
 4. **Ejecutar servidores:**  
 
-```bash
+   ```bash
    $ python log_server.py
    $ python auth_server.py
-   $ python server.py
+   $ python server.py 
+
+5. **Conectarse al servidor:**
+   Puedes conectarte al servidor de sala de chat utilizando un cliente como telnet
+
+   ```bash
+   # Conectarse por IPV6
+   $ telnet :: 8888 

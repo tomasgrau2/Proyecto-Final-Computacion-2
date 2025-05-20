@@ -3,7 +3,6 @@ import logging
 import os
 import signal
 import sys
-import time
 import queue
 from multiprocessing.managers import BaseManager
 from multiprocessing import Queue as MpQueue

@@ -3,8 +3,6 @@ import signal
 import os
 from dotenv import load_dotenv
 
-
-
 # Conjunto para almacenar usuarios activos
 usuarios_activos:dict = {}
 
@@ -82,7 +80,7 @@ async def main():
         async with server:
             await server.serve_forever()
     except asyncio.CancelledError:
-        pass  # Ya no necesitamos llamar a shutdown aquí
+        pass 
 
 if __name__ == "__main__":
     asyncio.run(main()) 

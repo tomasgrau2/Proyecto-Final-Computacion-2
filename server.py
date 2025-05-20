@@ -175,7 +175,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
 
                 logger.info(f"Mensaje de '{username}' [{addr}]: {mensaje}") 
 
-                # Reenviar mensaje filtrado a todos los demás clientes
+                # Reenviar mensaje a todos los demás clientes
                 now = datetime.datetime.now()
                 timestamp = now.strftime("%H:%M")
 
@@ -189,7 +189,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
                 break
             except Exception:
                 logger.exception(f"Error inesperado manejando mensaje de '{username}' {addr}.")  
-                break # Desconectar en caso de error grave
+                break # Desconectar en caso de error 
 
     except asyncio.IncompleteReadError:
         logger.warning(f"Lectura incompleta desde '{username}' {addr}. Probable desconexión abrupta.") 
@@ -198,8 +198,7 @@ async def handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWrit
     finally:
         logger.info(f"Cliente desconectado: '{username}' {addr}") 
         clientes.remove(writer)
-        # Intentar cerrar sesión en el servidor de autenticación
-        # Usar create_task para no bloquear el cierre si el servidor no responde rápido
+        # Cerrar sesión en el servidor de autenticación
         asyncio.create_task(logout_usuario(username))
         if not writer.is_closing():
              try:
@@ -282,5 +281,4 @@ if __name__ == "__main__":
         asyncio.run(main())
     except Exception as e:
         # Capturar cualquier error fatal durante el inicio/ejecución de asyncio.run
-        pass
-        # logging.critical(f"Error fatal no manejado: {e}")
+        logging.critical(f"Error fatal no manejado: {e}")
